@@ -1,21 +1,44 @@
+import { jsonb } from 'drizzle-orm/pg-core'
 import {pgTable, pgEnum, uuid, varchar, timestamp, text, integer, date, doublePrecision, numeric} from 'drizzle-orm/pg-core'
+
+export const DOC_TYPES = [
+    "terms_of_reference",
+    "meal_framework",
+    "micro_plan",
+    "quarterly_report",
+    "annual_report",
+    "steering_committee_report",
+    "budget",
+    "risk_register",
+    "meeting_minutes",
+    "lessons_learned",
+    "other",
+] as const
 
 export const ACTIVITY_STATUSES = ['not_started', 'in_progress', 'completed', 'delayed', 'at_risk', 'cancelled'] as const
 export const SEVERITIES = ['low', 'medium', 'high', 'critical'] as const
 export const RISK_STATUS = ['open', 'mitigating', 'closed'] as const
 
+export type DocType = (typeof DOC_TYPES)[number]
+export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number]
+export type Severity = (typeof SEVERITIES)[number]
+export type RiskStatus = (typeof RISK_STATUS)[number]
+
 export const activityStatusEnum = pgEnum('activity_status', ACTIVITY_STATUSES)
 export const severityEnum = pgEnum('severity', SEVERITIES)
 export const riskStatusEnum = pgEnum('risk_status', RISK_STATUS)
+export const docTypeEnum = pgEnum('doc_type', DOC_TYPES)
 
 export const documents = pgTable('documents', {
     documentId: uuid('documentId').defaultRandom().primaryKey(),
     fileName: text('filename').notNull(),
     mimeType: text('mime_type').notNull(),
     storagePath: text('storage_path').notNull(),
+    docType: docTypeEnum('doc_type').notNull().default('other'),
     sizeBytes: integer('size_bytes').notNull(),
     rawText: text('raw_text'),
     pageCount: integer('page_count'),
+    metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
     uploadedBy: varchar('uploaded_by'),
     uploadedAt: timestamp('uploaded_at').defaultNow().notNull()
 })
