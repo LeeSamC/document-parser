@@ -1,5 +1,6 @@
+import { uniqueIndex } from 'drizzle-orm/gel-core';
 import { jsonb } from 'drizzle-orm/pg-core'
-import {pgTable, pgEnum, uuid, varchar, timestamp, text, integer, date, doublePrecision, numeric} from 'drizzle-orm/pg-core'
+import {pgTable, pgEnum, uuid, varchar, timestamp, text, integer, date, doublePrecision, numeric, index} from 'drizzle-orm/pg-core'
 
 export const DOC_TYPES = [
     "terms_of_reference",
@@ -15,6 +16,7 @@ export const DOC_TYPES = [
     "other",
 ] as const
 
+export const DOC_STATUSES = ["pending", "processing", "parsed", "failed"] as const;
 export const ACTIVITY_STATUSES = ['not_started', 'in_progress', 'completed', 'delayed', 'at_risk', 'cancelled'] as const
 export const SEVERITIES = ['low', 'medium', 'high', 'critical'] as const
 export const RISK_STATUS = ['open', 'mitigating', 'closed'] as const
@@ -24,24 +26,39 @@ export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number]
 export type Severity = (typeof SEVERITIES)[number]
 export type RiskStatus = (typeof RISK_STATUS)[number]
 
+export const docStatusEnum = pgEnum("doc_status", DOC_STATUSES);
 export const activityStatusEnum = pgEnum('activity_status', ACTIVITY_STATUSES)
 export const severityEnum = pgEnum('severity', SEVERITIES)
 export const riskStatusEnum = pgEnum('risk_status', RISK_STATUS)
 export const docTypeEnum = pgEnum('doc_type', DOC_TYPES)
 
+
+const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
+
 export const documents = pgTable('documents', {
-    documentId: uuid('documentId').defaultRandom().primaryKey(),
-    fileName: text('filename').notNull(),
-    mimeType: text('mime_type').notNull(),
-    storagePath: text('storage_path').notNull(),
-    docType: docTypeEnum('doc_type').notNull().default('other'),
-    sizeBytes: integer('size_bytes').notNull(),
-    rawText: text('raw_text'),
-    pageCount: integer('page_count'),
-    metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
-    uploadedBy: varchar('uploaded_by'),
-    uploadedAt: timestamp('uploaded_at').defaultNow().notNull()
-})
+    documentId: uuid("document_id").primaryKey().defaultRandom(),
+    filename: text("filename").notNull(),
+    mimeType: text("mime_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    sha256: text("sha256").notNull(),
+    storagePath: text("storage_path").notNull(),
+    docType: docTypeEnum("doc_type").notNull().default("other"),
+    beneficiaryEntity: text("beneficiary_entity"), 
+    reportingPeriod: text("reporting_period"), 
+    status: docStatusEnum("status").notNull().default("pending"),
+    errorMessage: text("error_message"),
+    rawText: text("raw_text"),
+    pageCount: integer("page_count"),
+    metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+},
+(t) => [
+    uniqueIndex("documnets_sha256_uq").on(t.sha256 as any),
+    index("documents_type_idx").on(t.docType),
+    index("documents_entity_idx").on(t.beneficiaryEntity),
+    ],
+)
 
 export const documentChunks = pgTable('document_chunks', {
     chunkId: uuid('chunk_id').defaultRandom().primaryKey(),
@@ -83,7 +100,7 @@ export const budgetLines = pgTable('budget_lines', {
     sourceRef: text('source_ref')
 })
 
-export const risk = pgTable('risk', {
+export const risks = pgTable('risks', {
     riskId: uuid('risk_id').defaultRandom().primaryKey(),
     documentId: uuid('document_id').notNull().references(() => documents.documentId, {onDelete: 'cascade'}),
     description: text('description').notNull(),
@@ -95,3 +112,5 @@ export const risk = pgTable('risk', {
     sourceRef: text('source_ref')
 
 })
+
+export type Document = typeof documents.$inferSelect
