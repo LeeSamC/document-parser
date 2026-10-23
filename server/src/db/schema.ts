@@ -20,6 +20,7 @@ export const DOC_STATUSES = ["pending", "processing", "parsed", "failed"] as con
 export const ACTIVITY_STATUSES = ['not_started', 'in_progress', 'completed', 'delayed', 'at_risk', 'cancelled'] as const
 export const SEVERITIES = ['low', 'medium', 'high', 'critical'] as const
 export const RISK_STATUS = ['open', 'mitigating', 'closed'] as const
+export const SUMMARY_SCOPES = ["document", "project"] as const
 
 export type DocType = (typeof DOC_TYPES)[number]
 export type ActivityStatus = (typeof ACTIVITY_STATUSES)[number]
@@ -31,6 +32,7 @@ export const activityStatusEnum = pgEnum('activity_status', ACTIVITY_STATUSES)
 export const severityEnum = pgEnum('severity', SEVERITIES)
 export const riskStatusEnum = pgEnum('risk_status', RISK_STATUS)
 export const docTypeEnum = pgEnum('doc_type', DOC_TYPES)
+export const summaryScopeEnum = pgEnum('summary_scope', SUMMARY_SCOPES)
 
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
@@ -111,6 +113,15 @@ export const risks = pgTable('risks', {
     owner: text('owner'),
     sourceRef: text('source_ref')
 
+})
+
+export const summaries = pgTable('summaries', {
+    id: uuid('id').primaryKey().defaultRandom(),
+    scope: summaryScopeEnum('scope').notNull(),
+    documentId: uuid('document_id').references(() => documents.documentId, {onDelete: 'cascade'}),
+    content: text('content').notNull(),
+    model: text('model').notNull(),
+    createdAt: createdAt()
 })
 
 export type Document = typeof documents.$inferSelect
